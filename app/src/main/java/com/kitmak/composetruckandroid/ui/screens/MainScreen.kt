@@ -2,6 +2,7 @@ package com.kitmak.composetruckandroid.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.MaterialTheme.typography
@@ -24,9 +25,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.kitmak.composetruckandroid.ui.theme.Shapes
 import com.kitmak.composetruckandroid.vm.MainViewModel
-import com.kitmak.network.remote.responses.TruckLocation
-import com.kitmak.network.remote.responses.TruckRoute
-import com.kitmak.network.remote.responses.safe
+import com.kitmak.network.remote.responses.*
 import com.kitmak.repo.TruckResult
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -80,109 +79,199 @@ fun Sheet(
     onLoadRouteClick: suspend (String) -> List<TruckRoute>
 ) {
     val scope = rememberCoroutineScope()
-    var routeState by remember { mutableStateOf<List<TruckRoute>>(emptyList()) }
+    var routes by remember { mutableStateOf<List<TruckRoute>>(emptyList()) }
 
-    val peakHeight = 158.dp
     currentTruckState?.safe()?.let { truck ->
+        scope.launch {
+            routes = onLoadRouteClick(truck.lineId)
+        }
         when (truckLocation) {
             is TruckResult.Error -> TODO()
             TruckResult.Loading -> CircularProgressIndicator()
             is TruckResult.Success -> {
                 Column(
                     Modifier
-                        .padding(start = 32.dp, end = 32.dp, top = 32.dp)
-                        .height(peakHeight)
                         .fillMaxWidth(),
-                    horizontalAlignment = Alignment.Start
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.Top,
                 ) {
-                    Text(style = typography.h5, text = "${truck.cityName} ${truck.car}")
-                    Text(style = typography.h6, text = truck.location)
-                    Text(style = typography.h6, text = truck.readableTime)
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Chip(
-                            onClick = { /* Do something! */ },
-                            border = ChipDefaults.outlinedBorder,
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Filled.Favorite,
-                                    contentDescription = "Localized description"
-                                )
-                            }
-                        ) {
-                            Text("Bookmark")
-                        }
-                        Chip(
-                            onClick = { /* Do something! */ },
-                            border = ChipDefaults.outlinedBorder,
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Filled.Share,
-                                    contentDescription = "Localized description"
-                                )
-                            }
-                        ) {
-                            Text("Share")
-                        }
-                        Chip(
-                            onClick = { /* Do something! */ },
-                            border = ChipDefaults.outlinedBorder,
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Place,
-                                    contentDescription = "Localized description"
-                                )
-                            }
-                        ) {
-                            Text("Open in")
-                        }
-                    }
-                }
-
-                Card(
-                    onClick = {},
-                    border = BorderStroke(1.dp, Color.Gray),
-                    elevation = 0.dp,
-                    shape = Shapes.large,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 32.dp, end = 32.dp, bottom = 32.dp),
-                ) {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.Start,
-                        verticalArrangement = Arrangement.Top,
-                    ) {
-                        Text(style = typography.body1, text = "latitude and longitude:")
-                        Spacer(Modifier.height(4.dp))
-                        Text(style = typography.body2, text = truck.latitude.toString())
-                        Text(style = typography.body2, text = truck.longitude.toString())
-                    }
-                }
-
-                Card(
-
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                ) {
-                    Button(onClick = {
-                        scope.launch {
-                            routeState = onLoadRouteClick(truck.lineId)
-                        }
-                    }) {
-                        Text(style = typography.body1, text = routeState.toString())
-
-                    }
+                    SheetPeak(truck)
+                    LatLngCard(truck)
+                    SchedulesCard(routes)
                 }
             }
         }
+    }
+}
 
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+fun SchedulesCard(routes: List<TruckRoute>) {
+    Card(
+        onClick = {},
+        border = BorderStroke(1.dp, Color.Gray),
+        elevation = 0.dp,
+        shape = Shapes.large,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 32.dp, end = 32.dp, bottom = 32.dp),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.Top,
+        ) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                style = typography.body2,
+                text = "FoodScraps"
+            )
+            routes.firstOrNull()?.foodScrapsSchedule()?.let {
+                WeekdayRow(it)
+            }
+            Text(
+                style = typography.body2,
+                text = "Recycling"
+            )
+            routes.firstOrNull()?.recyclingSchedule()?.let {
+                WeekdayRow(it)
+            }
+            Text(
+                style = typography.body2,
+                text = "Garbage"
+            )
+            routes.firstOrNull()?.garbageSchedule()?.let {
+                WeekdayRow(it)
+            }
+        }
 
+    }
+}
+
+@Composable
+fun WeekdayRow(schedule: Schedule) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        with(schedule) {
+            if (mon) WeekdayCircle(weekday = "MON")
+            if (tue) WeekdayCircle(weekday = "TUE")
+            if (wed) WeekdayCircle(weekday = "WED")
+            if (thur) WeekdayCircle(weekday = "THU")
+            if (fri) WeekdayCircle(weekday = "FRI")
+            if (sat) WeekdayCircle(weekday = "SAT")
+            if (sun) WeekdayCircle(weekday = "SUN")
+        }
+    }
+}
+
+@Composable
+fun WeekdayCircle(weekday: String) {
+    Surface(
+        modifier = Modifier
+            .width(42.dp)
+            .height(42.dp)
+            .aspectRatio(1f, true),
+        shape = CircleShape,
+        border = BorderStroke(0.5.dp, Color.Gray)
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(4.dp)) {
+            Column {
+                Text(text = weekday, style = typography.body2)
+            }
+
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+fun LatLngCard(truck: SafeTruckLocation) {
+    Card(
+        onClick = {},
+        border = BorderStroke(1.dp, Color.Gray),
+        elevation = 0.dp,
+        shape = Shapes.large,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 32.dp, end = 32.dp, bottom = 32.dp),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.Top,
+        ) {
+            Text(style = typography.body1, text = "latitude and longitude:")
+            Spacer(Modifier.height(4.dp))
+            Text(style = typography.body2, text = truck.latitude.toString())
+            Text(style = typography.body2, text = truck.longitude.toString())
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+fun SheetPeak(truck: SafeTruckLocation) {
+    val peakHeight = 158.dp
+
+    Column(
+        Modifier
+            .padding(start = 32.dp, end = 32.dp, top = 32.dp)
+            .height(peakHeight)
+            .fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Text(style = typography.h5, text = "${truck.cityName} ${truck.car}")
+        Text(style = typography.h6, text = truck.location)
+        Text(style = typography.h6, text = truck.readableTime)
+        Spacer(Modifier.height(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Chip(
+                onClick = { /* Do something! */ },
+                border = ChipDefaults.outlinedBorder,
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.Favorite,
+                        contentDescription = "Localized description"
+                    )
+                }
+            ) {
+                Text("Bookmark")
+            }
+            Chip(
+                onClick = { /* Do something! */ },
+                border = ChipDefaults.outlinedBorder,
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.Share,
+                        contentDescription = "Localized description"
+                    )
+                }
+            ) {
+                Text("Share")
+            }
+            Chip(
+                onClick = { /* Do something! */ },
+                border = ChipDefaults.outlinedBorder,
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Place,
+                        contentDescription = "Localized description"
+                    )
+                }
+            ) {
+                Text("Open in")
+            }
+        }
     }
 
 }

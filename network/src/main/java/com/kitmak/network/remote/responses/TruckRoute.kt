@@ -77,6 +77,68 @@ data class TruckRoute(
     val garbageSaturday: String? = ""
 )
 
+interface Schedule {
+    val mon: Boolean
+    val tue: Boolean
+    val wed: Boolean
+    val thur: Boolean
+    val fri: Boolean
+    val sat: Boolean
+    val sun: Boolean
+}
+data class ScheduleImpl(
+    override val mon: Boolean,
+    override val tue: Boolean,
+    override val wed: Boolean,
+    override val thur: Boolean,
+    override val fri: Boolean,
+    override val sat: Boolean,
+    override val sun: Boolean
+) :Schedule
+
+fun TruckRoute.garbageSchedule(): Schedule {
+    return ScheduleImpl(
+        mon = garbageMonday.exists(),
+        tue = garbageTuesday.exists(),
+        wed = garbageWednesday.exists(),
+        thur = garbageThursday.exists(),
+        fri = garbageFriday.exists(),
+        sat = garbageSaturday.exists(),
+        sun = garbageSunday.exists(),
+    )
+}
+
+fun TruckRoute.foodScrapsSchedule(): Schedule {
+    return ScheduleImpl(
+        mon = foodScrapsMonday.exists(),
+        tue = foodScrapsTuesday.exists(),
+        wed = foodScrapsWednesday.exists(),
+        thur = foodScrapsThursday.exists(),
+        fri = foodScrapsFriday.exists(),
+        sat = foodScrapsSaturday.exists(),
+        sun = foodScrapsSunday.exists(),
+    )
+}
+
+fun TruckRoute.recyclingSchedule(): Schedule {
+    return ScheduleImpl(
+        mon = recyclingMonday.exists(),
+        tue = recyclingTuesday.exists(),
+        wed = recyclingWednesday.exists(),
+        thur = recyclingThursday.exists(),
+        fri = recyclingFriday.exists(),
+        sat = recyclingSaturday.exists(),
+        sun = recyclingSunday.exists(),
+    )
+}
+
+
+
+private fun String?.exists(): Boolean {
+    return this == "Y"
+}
+
+
 fun TruckRouteEntity.toDomain() = TruckRoute(
     recyclingSunday,
     wgs84aX,
@@ -114,9 +176,10 @@ fun TruckRouteEntity.toDomain() = TruckRoute(
     time,
     garbageSaturday
 )
+
 fun TruckRoute.toDb(): TruckRouteEntity {
     return TruckRouteEntity(
-        lineId = lineId?:"",
+        lineId = lineId ?: "",
         recyclingSunday = recyclingSunday,
         wgs84aX = wgs84aX,
         wgs84aY = wgs84aY,
